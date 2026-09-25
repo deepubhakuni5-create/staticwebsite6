@@ -2,8 +2,6 @@ pipeline {
     agent any
 
     environment {
-        DOCKER = 'C:\\Users\\Ankit\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe'
-
         DOCKERHUB_USERNAME = 'deepu09567'
         IMAGE_NAME = 'deepu09567/mywebsite'
         IMAGE_TAG = 'latest'
@@ -25,7 +23,7 @@ pipeline {
                 echo 'Building Docker image...'
 
                 bat '''
-                    "%DOCKER%" build -t %IMAGE_NAME%:%IMAGE_TAG% .
+                    docker build -t %IMAGE_NAME%:%IMAGE_TAG% .
                 '''
             }
         }
@@ -41,9 +39,8 @@ pipeline {
                         passwordVariable: 'DOCKER_PASS'
                     )
                 ]) {
-
                     bat '''
-                        echo %DOCKER_PASS% | "%DOCKER%" login -u "%DOCKER_USER%" --password-stdin
+                        docker login -u "%DOCKER_USER%" -p "%DOCKER_PASS%"
 
                         if %ERRORLEVEL% NEQ 0 (
                             echo Docker Hub login failed
@@ -61,7 +58,14 @@ pipeline {
                 echo 'Pushing image to Docker Hub...'
 
                 bat '''
-                    "%DOCKER%" push %IMAGE_NAME%:%IMAGE_TAG%
+                    docker push %IMAGE_NAME%:%IMAGE_TAG%
+
+                    if %ERRORLEVEL% NEQ 0 (
+                        echo Docker image push failed
+                        exit /b 1
+                    )
+
+                    echo Docker image pushed successfully
                 '''
             }
         }
@@ -71,13 +75,20 @@ pipeline {
                 echo 'Deploying container...'
 
                 bat '''
-                    "%DOCKER%" stop mywebsite 2>NUL
-                    "%DOCKER%" rm mywebsite 2>NUL
+                    docker stop mywebsite 2>NUL
+                    docker rm mywebsite 2>NUL
 
-                    "%DOCKER%" run -d ^
+                    docker run -d ^
                         --name mywebsite ^
-                        -p 8057:80 ^
+                        -p 8087:80 ^
                         %IMAGE_NAME%:%IMAGE_TAG%
+
+                    if %ERRORLEVEL% NEQ 0 (
+                        echo Container deployment failed
+                        exit /b 1
+                    )
+
+                    echo Container deployed successfully
                 '''
             }
         }
@@ -87,7 +98,7 @@ pipeline {
                 echo 'Checking running container...'
 
                 bat '''
-                    "%DOCKER%" ps
+                    docker ps
                 '''
             }
         }
@@ -95,15 +106,18 @@ pipeline {
 
     post {
         success {
-            echo '========================================'
+            echo '======================================'
             echo 'CI/CD PIPELINE SUCCESSFUL'
-            echo '========================================'
+            echo 'Docker image pushed successfully'
+            echo 'Website running on port 8087'
+            echo '======================================'
         }
 
         failure {
-            echo '========================================'
+            echo '======================================'
             echo 'CI/CD PIPELINE FAILED'
-            echo '========================================'
+            echo 'Check the stage where the error occurred'
+            echo '======================================'
         }
     }
 }
