@@ -2,6 +2,8 @@ pipeline {
     agent any
 
     environment {
+        DOCKER = 'C:\\Users\\Ankit\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe'
+
         DOCKERHUB_USERNAME = 'deepu09567'
         IMAGE_NAME = 'deepu09567/mywebsite'
         IMAGE_TAG = 'latest'
@@ -9,26 +11,17 @@ pipeline {
 
     stages {
 
-        stage('Checkout') {
+        stage('Docker Test') {
             steps {
-                echo 'Checking out source code...'
-
-                git branch: 'main',
-                    url: 'https://github.com/deepubhakuni5-create/staticwebsite6.git'
-            }
-        }
-
-        stage('Docker Build') {
-            steps {
-                echo 'Building Docker image...'
+                echo 'Testing Docker...'
 
                 bat '''
-                    docker build -t %IMAGE_NAME%:%IMAGE_TAG% .
+                    "%DOCKER%" version
                 '''
             }
         }
 
-        stage('Docker Login') {
+        stage('Docker Hub Login') {
             steps {
                 echo 'Logging into Docker Hub...'
 
@@ -40,16 +33,26 @@ pipeline {
                     )
                 ]) {
                     bat '''
-                        docker login -u "%DOCKER_USER%" -p "%DOCKER_PASS%"
+                        "%DOCKER%" login -u "%DOCKER_USER%" -p "%DOCKER_PASS%"
 
                         if %ERRORLEVEL% NEQ 0 (
-                            echo Docker Hub login failed
+                            echo Docker Hub Login FAILED
                             exit /b 1
                         )
 
-                        echo Docker Hub login successful
+                        echo Docker Hub Login SUCCESSFUL
                     '''
                 }
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                echo 'Building Docker image...'
+
+                bat '''
+                    "%DOCKER%" build -t %IMAGE_NAME%:%IMAGE_TAG% .
+                '''
             }
         }
 
@@ -58,47 +61,47 @@ pipeline {
                 echo 'Pushing image to Docker Hub...'
 
                 bat '''
-                    docker push %IMAGE_NAME%:%IMAGE_TAG%
+                    "%DOCKER%" push %IMAGE_NAME%:%IMAGE_TAG%
 
                     if %ERRORLEVEL% NEQ 0 (
-                        echo Docker image push failed
+                        echo Docker Push FAILED
                         exit /b 1
                     )
 
-                    echo Docker image pushed successfully
+                    echo Docker Push SUCCESSFUL
                 '''
             }
         }
 
-        stage('Deploy Container') {
+        stage('Deploy') {
             steps {
-                echo 'Deploying container...'
+                echo 'Deploying website...'
 
                 bat '''
-                    docker stop mywebsite 2>NUL
-                    docker rm mywebsite 2>NUL
+                    "%DOCKER%" stop mywebsite 2>NUL
+                    "%DOCKER%" rm mywebsite 2>NUL
 
-                    docker run -d ^
+                    "%DOCKER%" run -d ^
                         --name mywebsite ^
                         -p 8087:80 ^
                         %IMAGE_NAME%:%IMAGE_TAG%
 
                     if %ERRORLEVEL% NEQ 0 (
-                        echo Container deployment failed
+                        echo Deployment FAILED
                         exit /b 1
                     )
 
-                    echo Container deployed successfully
+                    echo Deployment SUCCESSFUL
                 '''
             }
         }
 
-        stage('Verify Deployment') {
+        stage('Verify') {
             steps {
                 echo 'Checking running container...'
 
                 bat '''
-                    docker ps
+                    "%DOCKER%" ps
                 '''
             }
         }
@@ -106,18 +109,15 @@ pipeline {
 
     post {
         success {
-            echo '======================================'
+            echo '================================'
             echo 'CI/CD PIPELINE SUCCESSFUL'
-            echo 'Docker image pushed successfully'
-            echo 'Website running on port 8087'
-            echo '======================================'
+            echo '================================'
         }
 
         failure {
-            echo '======================================'
+            echo '================================'
             echo 'CI/CD PIPELINE FAILED'
-            echo 'Check the stage where the error occurred'
-            echo '======================================'
+            echo '================================'
         }
     }
 }
